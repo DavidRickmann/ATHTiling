@@ -37,8 +37,6 @@
     <div id="root"></div>
 
     <script type="text/babel">
-import React, { useState, useEffect, useRef } from 'react';
-
 // Button component
 const Button = ({ className = "", children, ...props }) => {
     return (
@@ -77,14 +75,14 @@ const Icons = {
 };
 
 const TilePairingInterface = () => {
-    const [tiles, setTiles] = useState([]);
-    const [isFlipped, setIsFlipped] = useState(false);
-    const [draggedTile, setDraggedTile] = useState(null);
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-    const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 1200, height: 800 });
-    const [isPanning, setIsPanning] = useState(false);
-    const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
-    const svgRef = useRef(null);
+    const [tiles, setTiles] = React.useState([]);
+    const [isFlipped, setIsFlipped] = React.useState(false);
+    const [draggedTile, setDraggedTile] = React.useState(null);
+    const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
+    const [viewBox, setViewBox] = React.useState({ x: 0, y: 0, width: 1200, height: 800 });
+    const [isPanning, setIsPanning] = React.useState(false);
+    const [lastMousePosition, setLastMousePosition] = React.useState({ x: 0, y: 0 });
+    const svgRef = React.useRef(null);
 
     const tilePath = "M93.075588,186.263531L94.568682,74.654722l63.456514-.373275L190.5,19.036953L286.058044,73.5349l-.373274,110.488989l63.829788.746547L381,240.761477l-95.688503,54.497947L190.5,240.761476l-31.728257,54.124673-129.152669-.000001L0,240.761476l93.075588-54.497945Z";
     const centerX = 190.5;
@@ -255,7 +253,7 @@ const TilePairingInterface = () => {
         }));
     };
 
-    useEffect(() => {
+    React.useEffect(() => {
         const preventDefault = (e) => e.preventDefault();
         svgRef.current?.addEventListener('contextmenu', preventDefault);
         return () => svgRef.current?.removeEventListener('contextmenu', preventDefault);
@@ -392,6 +390,7 @@ const TilePairingInterface = () => {
         </div>
     );
 };
+
 
         // Render the app
         const root = ReactDOM.createRoot(document.getElementById('root'));
