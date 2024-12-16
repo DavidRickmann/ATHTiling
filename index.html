@@ -37,267 +37,361 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // Simple icon components
-        const Icons = {
-            ImagePlus: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <path d="M12 8v8m-4-4h8"/>
-                </svg>
-            ),
-            RotateCw: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.7 2.8L21 8"/>
-                </svg>
-            ),
-            RotateCcw: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 12a9 9 0 1 1 9 9c-2.52 0-4.93-1-6.7-2.8L3 16"/>
-                </svg>
-            ),
-            FlipHorizontal: () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3m8-18h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3m-4-1V3"/>
-                </svg>
-            )
-        };
+import React, { useState, useEffect, useRef } from 'react';
 
-        // Simple button component
-        const Button = ({ className = "", variant = "default", size = "default", children, ...props }) => {
-            return (
-                <button
-                    className={`btn ${size === "sm" ? "btn-sm" : ""} ${className}`}
-                    {...props}
-                >
-                    {children}
-                </button>
-            );
-        };
+// Button component
+const Button = ({ className = "", children, ...props }) => {
+    return (
+        <button
+            className={`inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50 ${className}`}
+            {...props}
+        >
+            {children}
+        </button>
+    );
+};
 
-        const TilePairingInterface = () => {
-            const [tiles, setTiles] = React.useState([]);
-            const [isFlipped, setIsFlipped] = React.useState(false);
-            const [draggedTile, setDraggedTile] = React.useState(null);
-            const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
+// Icons component
+const Icons = {
+    ImagePlus: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M12 8v8m-4-4h8"/>
+        </svg>
+    ),
+    RotateCw: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.7 2.8L21 8"/>
+        </svg>
+    ),
+    RotateCcw: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 12a9 9 0 1 1 9 9c-2.52 0-4.93-1-6.7-2.8L3 16"/>
+        </svg>
+    ),
+    FlipHorizontal: () => (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3m8-18h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3m-4-1V3"/>
+        </svg>
+    )
+};
 
-            const tilePath = "M93.075588,186.263531L94.568682,74.654722l63.456514-.373275L190.5,19.036953L286.058044,73.5349l-.373274,110.488989l63.829788.746547L381,240.761477l-95.688503,54.497947L190.5,240.761476l-31.728257,54.124673-129.152669-.000001L0,240.761476l93.075588-54.497945Z";
+const TilePairingInterface = () => {
+    const [tiles, setTiles] = useState([]);
+    const [isFlipped, setIsFlipped] = useState(false);
+    const [draggedTile, setDraggedTile] = useState(null);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 1200, height: 800 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
+    const svgRef = useRef(null);
 
-            const centerX = 190.5;
-            const centerY = 147.5;
+    const tilePath = "M93.075588,186.263531L94.568682,74.654722l63.456514-.373275L190.5,19.036953L286.058044,73.5349l-.373274,110.488989l63.829788.746547L381,240.761477l-95.688503,54.497947L190.5,240.761476l-31.728257,54.124673-129.152669-.000001L0,240.761476l93.075588-54.497945Z";
+    const centerX = 190.5;
+    const centerY = 147.5;
 
-            const addTilePair = () => {
-                setTiles([...tiles, {
-                    id: Date.now(),
-                    front: null,
-                    back: null,
-                    x: Math.random() * 800,
-                    y: Math.random() * 600,
-                    rotation: 0,
-                    isMirrored: false
-                }]);
-            };
+    const handleWheel = (e) => {
+        e.preventDefault();
+        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+        
+        const svgRect = svgRef.current.getBoundingClientRect();
+        const mouseX = e.clientX - svgRect.left;
+        const mouseY = e.clientY - svgRect.top;
+        
+        const pointX = viewBox.x + (mouseX / svgRect.width) * viewBox.width;
+        const pointY = viewBox.y + (mouseY / svgRect.height) * viewBox.height;
+        
+        setViewBox(vb => ({
+            x: pointX - (pointX - vb.x) * zoomFactor,
+            y: pointY - (pointY - vb.y) * zoomFactor,
+            width: vb.width * zoomFactor,
+            height: vb.height * zoomFactor
+        }));
+    };
 
-            const rotateTile = (tileId, direction) => {
-                setTiles(tiles.map(tile => 
+    const handleMouseDown = (e) => {
+        if (e.button === 1 || e.button === 2) {
+            e.preventDefault();
+            setIsPanning(true);
+            setLastMousePosition({
+                x: e.clientX,
+                y: e.clientY
+            });
+        }
+    };
+
+    const handleMouseMove = (e) => {
+        if (draggedTile) {
+            const svgElement = svgRef.current;
+            const pt = svgElement.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const svgP = pt.matrixTransform(svgElement.getScreenCTM().inverse());
+
+            // Adjust position based on field flip state
+            const adjustedX = isFlipped ? viewBox.width - svgP.x : svgP.x;
+
+            setTiles(tiles.map(tile => 
+                tile.id === draggedTile.id
+                    ? { 
+                        ...tile, 
+                        x: adjustedX - dragOffset.x,
+                        y: svgP.y - dragOffset.y 
+                    }
+                    : tile
+            ));
+        } else if (isPanning) {
+            const dx = e.clientX - lastMousePosition.x;
+            const dy = e.clientY - lastMousePosition.y;
+            
+            const scale = viewBox.width / svgRef.current.clientWidth;
+            
+            setViewBox(vb => ({
+                ...vb,
+                x: vb.x - dx * scale,
+                y: vb.y - dy * scale
+            }));
+            
+            setLastMousePosition({
+                x: e.clientX,
+                y: e.clientY
+            });
+        }
+    };
+
+    const handleMouseUp = () => {
+        setIsPanning(false);
+        setDraggedTile(null);
+    };
+
+    const resetView = () => {
+        setViewBox({ x: 0, y: 0, width: 1200, height: 800 });
+    };
+
+    const addTilePair = () => {
+        setTiles([...tiles, {
+            id: Date.now(),
+            front: null,
+            back: null,
+            x: Math.random() * 800,
+            y: Math.random() * 600,
+            rotation: 0,
+            isMirrored: false
+        }]);
+    };
+
+    const rotateTile = (tileId, direction) => {
+        setTiles(tiles.map(tile => 
+            tile.id === tileId
+                ? { ...tile, rotation: tile.rotation + (direction * 15) }
+                : tile
+        ));
+    };
+
+    const mirrorTile = (tileId) => {
+        setTiles(tiles.map(tile => 
+            tile.id === tileId
+                ? { ...tile, isMirrored: !tile.isMirrored }
+                : tile
+        ));
+    };
+
+    const handleImageSelect = (e, tileId, side) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setTiles(tiles.map(tile =>
                     tile.id === tileId
-                        ? { ...tile, rotation: tile.rotation + (direction * 15) }
+                        ? { ...tile, [side]: e.target.result }
                         : tile
                 ));
             };
+            reader.readAsDataURL(file);
+        }
+    };
 
-            const mirrorTile = (tileId) => {
-                setTiles(tiles.map(tile => 
-                    tile.id === tileId
-                        ? { ...tile, isMirrored: !tile.isMirrored }
-                        : tile
-                ));
-            };
+    const handleTileDragStart = (e, tile) => {
+        e.stopPropagation();
+        const svgElement = svgRef.current;
+        const pt = svgElement.createSVGPoint();
+        pt.x = e.clientX;
+        pt.y = e.clientY;
+        const svgP = pt.matrixTransform(svgElement.getScreenCTM().inverse());
+        
+        // Adjust drag offset based on field flip state
+        const adjustedX = isFlipped ? viewBox.width - svgP.x : svgP.x;
+        
+        setDraggedTile(tile);
+        setDragOffset({
+            x: adjustedX - tile.x,
+            y: svgP.y - tile.y
+        });
+    };
 
-            const handleDragStart = (e, tile) => {
-                const svgElement = e.target.closest('svg');
-                const pt = svgElement.createSVGPoint();
-                pt.x = e.clientX;
-                pt.y = e.clientY;
-                const svgP = pt.matrixTransform(svgElement.getScreenCTM().inverse());
-                
-                setDraggedTile(tile);
-                setDragOffset({
-                    x: svgP.x - tile.x,
-                    y: svgP.y - tile.y
-                });
-            };
+    const getTileTransform = (tile) => {
+        // First transform to centered coordinates
+        const centerPosX = tile.x + centerX;
+        const centerPosY = tile.y + centerY;
+        
+        // If the field is flipped, mirror the x position across the center of the viewBox
+        const flippedX = isFlipped ? viewBox.width - centerPosX : centerPosX;
+        
+        return `
+            translate(${flippedX}, ${centerPosY})
+            rotate(${isFlipped ? -tile.rotation : tile.rotation})
+            scale(${tile.isMirrored ? -1 : 1}, 1)
+            translate(${-centerX}, ${-centerY})
+        `;
+    };
 
-            const handleDrag = (e) => {
-                if (!draggedTile) return;
+    // Flip the entire view when toggling
+    const handleFlip = () => {
+        setIsFlipped(!isFlipped);
+        // Mirror the viewBox's x position when flipping
+        setViewBox(vb => ({
+            ...vb,
+            x: vb.width - vb.x - vb.width // This mirrors the viewBox position
+        }));
+    };
 
-                const svgElement = e.target.closest('svg');
-                const pt = svgElement.createSVGPoint();
-                pt.x = e.clientX;
-                pt.y = e.clientY;
-                const svgP = pt.matrixTransform(svgElement.getScreenCTM().inverse());
+    useEffect(() => {
+        const preventDefault = (e) => e.preventDefault();
+        svgRef.current?.addEventListener('contextmenu', preventDefault);
+        return () => svgRef.current?.removeEventListener('contextmenu', preventDefault);
+    }, []);
 
-                setTiles(tiles.map(tile => 
-                    tile.id === draggedTile.id
-                        ? { ...tile, x: svgP.x - dragOffset.x, y: svgP.y - dragOffset.y }
-                        : tile
-                ));
-            };
-
-            const handleDragEnd = () => {
-                setDraggedTile(null);
-            };
-
-            const handleImageSelect = (e, tileId, side) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        setTiles(tiles.map(tile =>
-                            tile.id === tileId
-                                ? { ...tile, [side]: e.target.result }
-                                : tile
-                        ));
-                    };
-                    reader.readAsDataURL(file);
-                }
-            };
-
-            const getTileTransform = (tile) => {
-                return `
-                    translate(${tile.x + centerX}, ${tile.y + centerY})
-                    rotate(${tile.rotation})
-                    scale(${(tile.isMirrored ? -1 : 1) * (isFlipped ? -1 : 1)}, 1)
-                    translate(${-centerX}, ${-centerY})
-                `;
-            };
-
-            return (
-                <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem' }}>
-                        <Button onClick={addTilePair}>
-                            <Icons.ImagePlus /> Add Tile
-                        </Button>
-                        <Button onClick={() => setIsFlipped(!isFlipped)}>
-                            <Icons.RotateCcw /> Flip All
-                        </Button>
-                    </div>
-
-                    <svg 
-                        style={{ flex: 1, background: '#f9fafb' }}
-                        onMouseMove={handleDrag}
-                        onMouseUp={handleDragEnd}
-                        onMouseLeave={handleDragEnd}
-                        viewBox="0 0 1200 800"
-                        preserveAspectRatio="xMidYMid meet"
-                    >
-                        <defs>
-                            {tiles.map((tile) => (
-                                <React.Fragment key={`patterns-${tile.id}`}>
-                                    <pattern
-                                        id={`front-${tile.id}`}
-                                        patternUnits="userSpaceOnUse"
-                                        width="381"
-                                        height="295"
-                                        patternTransform={`scale(${(tile.isMirrored ? -1 : 1) * (isFlipped ? -1 : 1)}, 1)`}
-                                    >
-                                        {tile.front ? (
-                                            <image
-                                                href={tile.front}
-                                                width="381"
-                                                height="295"
-                                                preserveAspectRatio="xMidYMid slice"
-                                            />
-                                        ) : (
-                                            <rect width="381" height="295" fill="#f0f0f0" />
-                                        )}
-                                    </pattern>
-                                    <pattern
-                                        id={`back-${tile.id}`}
-                                        patternUnits="userSpaceOnUse"
-                                        width="381"
-                                        height="295"
-                                        patternTransform={`scale(${(tile.isMirrored ? -1 : 1) * (isFlipped ? -1 : 1)}, 1)`}
-                                    >
-                                        {tile.back ? (
-                                            <image
-                                                href={tile.back}
-                                                width="381"
-                                                height="295"
-                                                preserveAspectRatio="xMidYMid slice"
-                                            />
-                                        ) : (
-                                            <rect width="381" height="295" fill="#e0e0e0" />
-                                        )}
-                                    </pattern>
-                                </React.Fragment>
-                            ))}
-                        </defs>
-
-                        {tiles.map((tile) => (
-                            <g
-                                key={tile.id}
-                                transform={getTileTransform(tile)}
-                                onMouseDown={(e) => handleDragStart(e, tile)}
-                                style={{ cursor: 'move' }}
-                            >
-                                <path
-                                    d={tilePath}
-                                    fill={`url(#${isFlipped ? 'back' : 'front'}-${tile.id})`}
-                                    stroke="black"
-                                    strokeWidth="1"
-                                />
-                                {!tile[isFlipped ? 'back' : 'front'] && (
-                                    <foreignObject x="140" y="120" width="100" height="40">
-                                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={(e) => handleImageSelect(e, tile.id, isFlipped ? 'back' : 'front')}
-                                                style={{ width: '100%', height: '100%', opacity: 0, cursor: 'pointer', position: 'absolute' }}
-                                            />
-                                            <span style={{ color: '#666' }}>
-                                                {isFlipped ? 'Add Back' : 'Add Front'}
-                                            </span>
-                                        </div>
-                                    </foreignObject>
-                                )}
-                                <foreignObject x="100" y="240" width="180" height="40">
-                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                                        <Button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                rotateTile(tile.id, -1);
-                                            }}
-                                            size="sm"
-                                        >
-                                            <Icons.RotateCcw />
-                                        </Button>
-                                        <Button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                rotateTile(tile.id, 1);
-                                            }}
-                                            size="sm"
-                                        >
-                                            <Icons.RotateCw />
-                                        </Button>
-                                        <Button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                mirrorTile(tile.id);
-                                            }}
-                                            size="sm"
-                                        >
-                                            <Icons.FlipHorizontal />
-                                        </Button>
-                                    </div>
-                                </foreignObject>
-                            </g>
-                        ))}
-                    </svg>
+    return (
+        <div className="w-full h-screen flex flex-col">
+            <div className="flex justify-between p-4 bg-white border-b">
+                <div className="flex gap-2">
+                    <Button onClick={addTilePair}>
+                        <Icons.ImagePlus /> Add Tile
+                    </Button>
+                    <Button onClick={handleFlip}>
+                        <Icons.RotateCcw /> Flip All
+                    </Button>
                 </div>
-            );
-        };
+                <Button onClick={resetView}>Reset View</Button>
+            </div>
+
+            <svg 
+                ref={svgRef}
+                className="flex-1 bg-gray-50"
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
+                preserveAspectRatio="xMidYMid meet"
+            >
+                <defs>
+                    {tiles.map((tile) => (
+                        <React.Fragment key={`patterns-${tile.id}`}>
+                            <pattern
+                                id={`front-${tile.id}`}
+                                patternUnits="userSpaceOnUse"
+                                width="381"
+                                height="295"
+                            >
+                                {tile.front ? (
+                                    <image
+                                        href={tile.front}
+                                        width="381"
+                                        height="295"
+                                        preserveAspectRatio="xMidYMid slice"
+                                    />
+                                ) : (
+                                    <rect width="381" height="295" fill="#f0f0f0" />
+                                )}
+                            </pattern>
+                            <pattern
+                                id={`back-${tile.id}`}
+                                patternUnits="userSpaceOnUse"
+                                width="381"
+                                height="295"
+                            >
+                                {tile.back ? (
+                                    <image
+                                        href={tile.back}
+                                        width="381"
+                                        height="295"
+                                        preserveAspectRatio="xMidYMid slice"
+                                    />
+                                ) : (
+                                    <rect width="381" height="295" fill="#e0e0e0" />
+                                )}
+                            </pattern>
+                        </React.Fragment>
+                    ))}
+                </defs>
+
+                {tiles.map((tile) => (
+                    <g
+                        key={tile.id}
+                        transform={getTileTransform(tile)}
+                        onMouseDown={(e) => handleTileDragStart(e, tile)}
+                        style={{ cursor: 'move' }}
+                    >
+                        <path
+                            d={tilePath}
+                            fill={`url(#${isFlipped ? 'back' : 'front'}-${tile.id})`}
+                            stroke="black"
+                            strokeWidth="1"
+                        />
+                        {!tile[isFlipped ? 'back' : 'front'] && (
+                            <foreignObject x="140" y="120" width="100" height="40">
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleImageSelect(e, tile.id, isFlipped ? 'back' : 'front')}
+                                        style={{ width: '100%', height: '100%', opacity: 0, cursor: 'pointer', position: 'absolute' }}
+                                    />
+                                    <span style={{ color: '#666' }}>
+                                        {isFlipped ? 'Add Back' : 'Add Front'}
+                                    </span>
+                                </div>
+                            </foreignObject>
+                        )}
+                        <foreignObject x="100" y="240" width="180" height="40">
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+                                <Button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        rotateTile(tile.id, -1);
+                                    }}
+                                    className="px-2 py-1 text-sm"
+                                >
+                                    <Icons.RotateCcw />
+                                </Button>
+                                <Button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        rotateTile(tile.id, 1);
+                                    }}
+                                    className="px-2 py-1 text-sm"
+                                >
+                                    <Icons.RotateCw />
+                                </Button>
+                                <Button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        mirrorTile(tile.id);
+                                    }}
+                                    className="px-2 py-1 text-sm"
+                                >
+                                    <Icons.FlipHorizontal />
+                                </Button>
+                            </div>
+                        </foreignObject>
+                    </g>
+                ))}
+            </svg>
+        </div>
+    );
+};
 
         // Render the app
         const root = ReactDOM.createRoot(document.getElementById('root'));
