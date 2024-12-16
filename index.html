@@ -252,6 +252,74 @@ const TilePairingInterface = () => {
             x: vb.width - vb.x - vb.width // This mirrors the viewBox position
         }));
     };
+	
+	
+	    // Add new functions for saving/loading
+    const saveToFile = () => {
+        const saveData = {
+            tiles,
+            isFlipped,
+            viewBox
+        };
+        
+        const blob = new Blob([JSON.stringify(saveData)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tile-layout-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const loadFromFile = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const saveData = JSON.parse(e.target.result);
+                    setTiles(saveData.tiles);
+                    setIsFlipped(saveData.isFlipped);
+                    setViewBox(saveData.viewBox);
+                } catch (err) {
+                    alert('Error loading save file');
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+	
+	
+	React.useEffect(() => {
+        // Save whenever tiles change
+        if (tiles.length > 0) {
+            localStorage.setItem('tileData', JSON.stringify({
+                tiles,
+                isFlipped,
+                viewBox,
+                lastSaved: new Date().toISOString()
+            }));
+        }
+    }, [tiles, isFlipped, viewBox]);
+
+    // Load from localStorage on startup
+    React.useEffect(() => {
+        const savedData = localStorage.getItem('tileData');
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                setTiles(parsed.tiles);
+                setIsFlipped(parsed.isFlipped);
+                setViewBox(parsed.viewBox);
+            } catch (err) {
+                console.error('Error loading saved data:', err);
+            }
+        }
+    }, []);
+	
 
     React.useEffect(() => {
         const preventDefault = (e) => e.preventDefault();
@@ -260,7 +328,7 @@ const TilePairingInterface = () => {
     }, []);
 
     return (
-        <div className="w-full h-screen flex flex-col">
+ <div className="w-full h-screen flex flex-col">
             <div className="flex justify-between p-4 bg-white border-b">
                 <div className="flex gap-2">
                     <Button onClick={addTilePair}>
@@ -270,7 +338,21 @@ const TilePairingInterface = () => {
                         <Icons.RotateCcw /> Flip All
                     </Button>
                 </div>
-                <Button onClick={resetView}>Reset View</Button>
+                <div className="flex gap-2">
+                    <Button onClick={saveToFile}>
+                        Save to File
+                    </Button>
+                    <label className="btn">
+                        Load from File
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={loadFromFile}
+                            style={{ display: 'none' }}
+                        />
+                    </label>
+                    <Button onClick={resetView}>Reset View</Button>
+                </div>
             </div>
 
             <svg 
