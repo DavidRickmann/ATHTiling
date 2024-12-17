@@ -90,6 +90,32 @@
         padding: 0.25rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
+  input[type="range"] {
+        -webkit-appearance: none;
+        height: 4px;
+        background: #e2e8f0;
+        border-radius: 2px;
+        outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        background: white;
+        border: 1px solid #cbd5e0;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+        border-color: #a0aec0;
+    }
+
+    .toolbar-group.border-l {
+        border-left: 1px solid #e2e8f0;
+    }
 </style>
 </head>
 <body>
@@ -159,8 +185,61 @@ const Icons = {
 	
 	
 };
-
-
+//Image Nudging
+const ImageAdjustControls = ({ 
+    scale, 
+    onScaleChange, 
+    offsetX, 
+    offsetY, 
+    onOffsetChange 
+}) => {
+    return (
+        <div className="toolbar-group border-l pl-4 ml-4">
+            <span className="zoom-label">Image Adjustments:</span>
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <span className="zoom-label">Scale:</span>
+                    <input
+                        type="range"
+                        min="0.5"
+                        max="1.5"
+                        step="0.01"
+                        value={scale}
+                        onChange={(e) => onScaleChange(parseFloat(e.target.value))}
+                        className="w-24"
+                    />
+                    <span className="zoom-label">{scale.toFixed(2)}x</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="zoom-label">Position:</span>
+                    <button 
+                        className="btn btn-sm"
+                        onClick={() => onOffsetChange(offsetX, offsetY - 1)}
+                    >↑</button>
+                    <button 
+                        className="btn btn-sm"
+                        onClick={() => onOffsetChange(offsetX, offsetY + 1)}
+                    >↓</button>
+                    <button 
+                        className="btn btn-sm"
+                        onClick={() => onOffsetChange(offsetX - 1, offsetY)}
+                    >←</button>
+                    <button 
+                        className="btn btn-sm"
+                        onClick={() => onOffsetChange(offsetX + 1, offsetY)}
+                    >→</button>
+                    <button 
+                        className="btn btn-sm"
+                        onClick={() => {
+                            onScaleChange(1);
+                            onOffsetChange(0, 0);
+                        }}
+                    >Reset</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 
 const TilePairingInterface = () => {
@@ -172,6 +251,9 @@ const TilePairingInterface = () => {
     const [isPanning, setIsPanning] = React.useState(false);
     const [lastMousePosition, setLastMousePosition] = React.useState({ x: 0, y: 0 });
     const svgRef = React.useRef(null);
+	const [globalImageScale, setGlobalImageScale] = React.useState(1);
+	const [globalImageOffsetX, setGlobalImageOffsetX] = React.useState(0);
+	const [globalImageOffsetY, setGlobalImageOffsetY] = React.useState(0);
 
     const tilePath = "M93.075588,186.263531L94.568682,74.654722l63.456514-.373275L190.5,19.036953L286.058044,73.5349l-.373274,110.488989l63.829788.746547L381,240.761477l-95.688503,54.497947L190.5,240.761476l-31.728257,54.124673-129.152669-.000001L0,240.761476l93.075588-54.497945Z";
     const centerX = 190.5;
@@ -478,15 +560,26 @@ const flipTile = (tileId) => {
     return (
  <div className="w-full h-screen flex flex-col">
     <div className="toolbar">
-        <div className="toolbar-group">
-            <Button onClick={addTilePair}>
-                <Icons.ImagePlus /> New Tile
-            </Button>
-            <BulkUploadButton onTilesCreated={handleBulkTilesCreated} />
-            <Button onClick={handleFlip}>
-                <Icons.RotateCcw /> Flip Field
-            </Button>
-        </div>
+    <div className="toolbar-group">
+        <Button onClick={addTilePair}>
+            <Icons.ImagePlus /> New Tile
+        </Button>
+        <BulkUploadButton onTilesCreated={handleBulkTilesCreated} />
+        <Button onClick={handleFlip}>
+            <Icons.RotateCcw /> Flip Field
+        </Button>
+    </div>
+    
+    <ImageAdjustControls
+        scale={globalImageScale}
+        onScaleChange={setGlobalImageScale}
+        offsetX={globalImageOffsetX}
+        offsetY={globalImageOffsetY}
+         onOffsetChange={(x, y) => {
+        setGlobalImageOffsetX(x);
+        setGlobalImageOffsetY(y);
+		}}
+    />
         
         <div className="toolbar-group">
             <Button onClick={saveToFile}>Save Layout</Button>
@@ -543,41 +636,41 @@ const flipTile = (tileId) => {
                     {tiles.map((tile) => (
                         <React.Fragment key={`patterns-${tile.id}`}>
                             <pattern
-                                id={`front-${tile.id}`}
-                                patternUnits="userSpaceOnUse"
-                                width="381"
-                                height="295"
-								patternTransform={`scale(${tile.isMirrored ? -1 : 1}, 1)`}
-                            >
-                                {tile.front ? (
-                                    <image
-                                        href={tile.front}
-                                        width="381"
-                                        height="295"
-                                        preserveAspectRatio="xMidYMid slice"
-                                    />
-                                ) : (
-                                    <rect width="381" height="295" fill="#f0f0f0" />
-                                )}
-                            </pattern>
-                            <pattern
-                                id={`back-${tile.id}`}
-                                patternUnits="userSpaceOnUse"
-                                width="381"
-                                height="295"
-								patternTransform={`scale(${tile.isMirrored ? -1 : 1}, 1)`}
-                            >
-                                {tile.back ? (
-                                    <image
-                                        href={tile.back}
-                                        width="381"
-                                        height="295"
-                                        preserveAspectRatio="xMidYMid slice"
-                                    />
-                                ) : (
-                                    <rect width="381" height="295" fill="#e0e0e0" />
-                                )}
-                            </pattern>
+    id={`front-${tile.id}`}
+    patternUnits="userSpaceOnUse"
+    width="381"
+    height="295"
+    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+>
+    {tile.front ? (
+        <image
+            href={tile.front}
+            width="381"
+            height="295"
+            preserveAspectRatio="xMidYMid slice"
+        />
+    ) : (
+        <rect width="381" height="295" fill="#f0f0f0" />
+    )}
+</pattern>
+<pattern
+    id={`back-${tile.id}`}
+    patternUnits="userSpaceOnUse"
+    width="381"
+    height="295"
+    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+>
+    {tile.back ? (
+        <image
+            href={tile.back}
+            width="381"
+            height="295"
+            preserveAspectRatio="xMidYMid slice"
+        />
+    ) : (
+        <rect width="381" height="295" fill="#e0e0e0" />
+    )}
+</pattern>
                         </React.Fragment>
                     ))}
                 </defs>
