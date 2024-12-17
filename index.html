@@ -12,44 +12,108 @@
     <!-- Babel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
-    <style>
-		body, html {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    height: 100vh;
-}
+<style>
+    body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
 
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid #ccc;
-            border-radius: 0.375rem;
-            background: white;
-            cursor: pointer;
-        }
-        .btn:hover {
-            background: #f0f0f0;
-        }
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
-        }
-		
-    </style>
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.375rem;
+        background: white;
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: #1a202c;
+        transition: all 0.2s;
+    }
+
+    .btn:hover {
+        background: #f7fafc;
+        border-color: #cbd5e0;
+    }
+
+    .btn:active {
+        background: #edf2f7;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .toolbar {
+        background: white;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0.75rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .toolbar-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .zoom-select {
+        padding: 0.25rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        color: #4a5568;
+        background: white;
+    }
+
+    .zoom-label {
+        font-size: 0.875rem;
+        color: #718096;
+    }
+
+    .canvas {
+        background: #f7fafc;
+        flex: 1;
+    }
+
+    .tile-controls {
+        background: white;
+        border-radius: 0.375rem;
+        padding: 0.25rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+</style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
 // Button component
-const Button = ({ className = "", children, ...props }) => {
+const Button = ({ className = "", children, onClick, variant = "default", size = "default" }) => {
+    const baseStyles = "inline-flex items-center justify-center rounded-md font-medium transition-colors";
+    const variantStyles = {
+        default: "bg-white border border-gray-200 hover:bg-gray-50 text-gray-900",
+        outline: "border border-gray-200 bg-transparent hover:bg-gray-100 text-gray-900",
+        ghost: "hover:bg-gray-100 text-gray-900"
+    };
+    const sizeStyles = {
+        default: "h-10 px-4 py-2",
+        sm: "h-8 px-3 text-sm",
+        icon: "h-9 w-9"
+    };
+    
     return (
         <button
-            className={`inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50 ${className}`}
-            {...props}
+            className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+            onClick={onClick}
         >
             {children}
         </button>
@@ -413,76 +477,68 @@ const flipTile = (tileId) => {
 
     return (
  <div className="w-full h-screen flex flex-col">
-            <div className="flex justify-between p-4 bg-white border-b">
-                <div className="flex gap-2">
-                    <Button onClick={addTilePair}>
-                        <Icons.ImagePlus /> Add Tile
-                    </Button>
-					<div className="flex gap-2">
-    <Button onClick={addTilePair}>
-        <Icons.ImagePlus /> Add Tile
-    </Button>
-    <BulkUploadButton onTilesCreated={handleBulkTilesCreated} />
-    <Button onClick={handleFlip}>
-        <Icons.RotateCcw /> Flip All
-    </Button>
-</div>
-                    <Button onClick={handleFlip}>
-                        <Icons.RotateCcw /> Flip All
-                    </Button>
-                </div>
-                <div className="flex gap-2">
-                    <Button onClick={saveToFile}>
-                        Save to File
-                    </Button>
-                    <label className="btn">
-                        Load from File
-                        <input
-                            type="file"
-                            accept=".json"
-                            onChange={loadFromFile}
-                            style={{ display: 'none' }}
-                        />
-                    </label>
-                    <Button onClick={resetView}>Reset View</Button>
-                </div>
-				<div className="flex items-center gap-2">
-    <select 
-        className="px-2 py-1 border rounded"
-        value={Math.round(1200/viewBox.width * 100)}
-        onChange={(e) => {
-            const zoom = parseInt(e.target.value) / 100;
-            setViewBox(vb => ({
-                ...vb,
-                width: 1200 / zoom,
-                height: 800 / zoom
-            }));
-        }}
-    >
-        <option value="25">25%</option>
-        <option value="50">50%</option>
-        <option value="75">75%</option>
-        <option value="100">100%</option>
-        <option value="150">150%</option>
-        <option value="200">200%</option>
-    </select>
-    <span className="text-sm text-gray-500">
-        Zoom: {Math.round(1200/viewBox.width * 100)}%
-    </span>
-</div>
+    <div className="toolbar">
+        <div className="toolbar-group">
+            <Button onClick={addTilePair}>
+                <Icons.ImagePlus /> New Tile
+            </Button>
+            <BulkUploadButton onTilesCreated={handleBulkTilesCreated} />
+            <Button onClick={handleFlip}>
+                <Icons.RotateCcw /> Flip Field
+            </Button>
+        </div>
+        
+        <div className="toolbar-group">
+            <Button onClick={saveToFile}>Save Layout</Button>
+            <label className="btn">
+                Load Layout
+                <input
+                    type="file"
+                    accept=".json"
+                    onChange={loadFromFile}
+                    style={{ display: 'none' }}
+                />
+            </label>
+            <Button onClick={resetView}>Reset View</Button>
+            
+            <div className="flex items-center gap-2">
+                <select 
+                    className="zoom-select"
+                    value={Math.round(1200/viewBox.width * 100)}
+                    onChange={(e) => {
+                        const zoom = parseInt(e.target.value) / 100;
+                        setViewBox(vb => ({
+                            ...vb,
+                            width: 1200 / zoom,
+                            height: 800 / zoom
+                        }));
+                    }}
+                >
+                    <option value="25">25%</option>
+                    <option value="50">50%</option>
+                    <option value="75">75%</option>
+                    <option value="100">100%</option>
+                    <option value="150">150%</option>
+                    <option value="200">200%</option>
+                </select>
+                <span className="zoom-label">
+                    Zoom: {Math.round(1200/viewBox.width * 100)}%
+                </span>
             </div>
+        </div>
+    </div>
 
-            <svg 
-                ref={svgRef}
-                className="flex-1 bg-gray-50"
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
-                preserveAspectRatio="xMidYMid meet"
-            >
+    <svg 
+        ref={svgRef}
+        className="canvas"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
+        preserveAspectRatio="xMidYMid meet"
+    >
                 <defs>
                     {tiles.map((tile) => (
                         <React.Fragment key={`patterns-${tile.id}`}>
