@@ -275,25 +275,30 @@ const TilePairingInterface = () => {
     };
 	
 	
-	    // Add new functions for saving/loading
-    const saveToFile = () => {
-        const saveData = {
-            tiles,
-            isFlipped,
-            viewBox
-        };
-        
-        const blob = new Blob([JSON.stringify(saveData)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `tile-layout-${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+	   
+const saveToFile = () => {
+    const saveData = {
+        tiles: tiles.map(tile => ({
+            ...tile,
+            // Convert base64 images to shorter preview URLs if needed
+            front: tile.front ? 'image_saved' : null,
+            back: tile.back ? 'image_saved' : null
+        })),
+        isFlipped,
+        viewBox
     };
+    
+    const blob = new Blob([JSON.stringify(saveData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tile-layout-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
 
     const loadFromFile = (e) => {
         const file = e.target.files[0];
@@ -314,39 +319,78 @@ const TilePairingInterface = () => {
     };
 	
 	
-	React.useEffect(() => {
-        // Save whenever tiles change
-        if (tiles.length > 0) {
-            localStorage.setItem('tileData', JSON.stringify({
-                tiles,
-                isFlipped,
-                viewBox,
-                lastSaved: new Date().toISOString()
-            }));
-        }
-    }, [tiles, isFlipped, viewBox]);
-
-    // Load from localStorage on startup
-    React.useEffect(() => {
-        const savedData = localStorage.getItem('tileData');
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                setTiles(parsed.tiles);
-                setIsFlipped(parsed.isFlipped);
-                setViewBox(parsed.viewBox);
-            } catch (err) {
-                console.error('Error loading saved data:', err);
-            }
-        }
-    }, []);
-	
+		
 
     React.useEffect(() => {
         const preventDefault = (e) => e.preventDefault();
         svgRef.current?.addEventListener('contextmenu', preventDefault);
         return () => svgRef.current?.removeEventListener('contextmenu', preventDefault);
     }, []);
+
+	const BulkUploadButton = ({ onTilesCreated }) => {
+    const handleFolderUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        const imageMap = new Map();
+
+        // Group files by their base name (without _obverse/_reverse)
+        files.forEach(file => {
+            const match = file.name.match(/(.+?)_(obverse|reverse)\.png$/);
+            if (match) {
+                const [, baseId, side] = match;
+                if (!imageMap.has(baseId)) {
+                    imageMap.set(baseId, {});
+                }
+                
+                // Convert file to data URL
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                
+                reader.onload = () => {
+                    imageMap.get(baseId)[side === 'obverse' ? 'front' : 'back'] = reader.result;
+                    
+                    // Check if both sides are loaded
+                    const currentTile = imageMap.get(baseId);
+                    if (currentTile.front && currentTile.back) {
+                        createTile(baseId, currentTile);
+                    }
+                };
+            }
+        });
+
+        // Create a tile with both images
+        const createTile = (baseId, images) => {
+            const newTile = {
+                id: baseId,
+                front: images.front,
+                back: images.back,
+                x: Math.random() * 800,
+                y: Math.random() * 600,
+                rotation: 0,
+                isMirrored: false
+            };
+
+            onTilesCreated(newTile);
+        };
+    };
+
+    return (
+        <label className="btn">
+            <input
+                type="file"
+                multiple
+                webkitdirectory=""
+                directory=""
+                style={{ display: 'none' }}
+                onChange={handleFolderUpload}
+            />
+            Bulk Upload Folder
+        </label>
+    );
+};
+
+const handleBulkTilesCreated = (newTile) => {
+    setTiles(prevTiles => [...prevTiles, newTile]);
+};
 
     return (
  <div className="w-full h-screen flex flex-col">
@@ -355,6 +399,15 @@ const TilePairingInterface = () => {
                     <Button onClick={addTilePair}>
                         <Icons.ImagePlus /> Add Tile
                     </Button>
+					<div className="flex gap-2">
+    <Button onClick={addTilePair}>
+        <Icons.ImagePlus /> Add Tile
+    </Button>
+    <BulkUploadButton onTilesCreated={handleBulkTilesCreated} />
+    <Button onClick={handleFlip}>
+        <Icons.RotateCcw /> Flip All
+    </Button>
+</div>
                     <Button onClick={handleFlip}>
                         <Icons.RotateCcw /> Flip All
                     </Button>
