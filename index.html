@@ -254,7 +254,10 @@ const MetadataTooltip = ({ metadata, position }) => {
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: 'translate(10px, -100%)'
+        transform: 'translate(10px, -100%)',
+		zIndex: 9999 
+		
+		
       }}
     >
       {obverse && (
