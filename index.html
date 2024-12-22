@@ -696,6 +696,67 @@ const flipTile = (tileId) => {
         <Button onClick={handleFlip}>
             <Icons.RotateCcw /> Flip Field
         </Button>
+        <Button 
+            onClick={async () => {
+                try {
+                    console.log('Fetching tiles from server...');
+                    const response = await fetch('https://extractatile.bacon.boutique/download_json', {
+                        method: 'GET',
+                        mode: 'cors',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Origin': window.location.origin
+                        },
+                        credentials: 'omit'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const jsonData = await response.json();
+                    
+                    // Validate the JSON structure
+                    if (!jsonData || typeof jsonData !== 'object') {
+                        throw new Error('Invalid JSON structure: Expected an object');
+                    }
+                    
+                    console.log('Received tile data:', jsonData);
+                    
+                    // Check if there are any tiles to import
+                    if (Object.keys(jsonData).length === 0) {
+                        alert('No tiles found in the response');
+                        return;
+                    }
+                    
+                    // Sample check of the data structure
+                    const sampleKey = Object.keys(jsonData)[0];
+                    const sampleTile = jsonData[sampleKey];
+                    if (!sampleTile?.obverse || !sampleTile?.reverse) {
+                        console.warn('Unexpected tile structure:', sampleTile);
+                        if (confirm('The tile data structure is unexpected. Would you still like to attempt import?')) {
+                            importTilesFromJson(jsonData);
+                        }
+                        return;
+                    }
+                    
+                    console.log('Importing tiles...');
+                    importTilesFromJson(jsonData);
+                    console.log('Import complete');
+                    
+                } catch (error) {
+                    console.error('Detailed error:', error);
+                    console.error('Error stack:', error.stack);
+                    if (error.message.includes('CORS')) {
+                        alert('CORS error: Unable to access the tile server directly. The server needs to allow cross-origin requests.');
+                    } else {
+                        alert(`Error fetching tiles: ${error.message}`);
+                    }
+                }
+            }}
+        >
+            Get Tiles
+        </Button>
     </div>
     
     <ImageAdjustControls
