@@ -774,8 +774,12 @@ const TilePairingInterface = () => {
     //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
     
     //new no mirror version
-    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${globalImageScale})`}
+    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${globalImageScale})`}
     
+    patternTransform={`
+        translate(${globalImageOffsetX} ${globalImageOffsetY}) 
+        ${tile.isMirrored ? `scale(-${globalImageScale}, ${globalImageScale})` : `scale(${globalImageScale})`}
+    `}
     
     >
     {tile.front ? (
@@ -794,10 +798,10 @@ const TilePairingInterface = () => {
     patternUnits="userSpaceOnUse"
     width="381"
     height="295"
-    //working version (individual flip)
-    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
-    //new no mirror version
-    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(-${globalImageScale}, ${globalImageScale})`}
+    patternTransform={`
+    translate(${globalImageOffsetX} ${globalImageOffsetY}) 
+    scale(${((isFlipped !== tile.isFlippedIndividually) && !tile.isMirrored) ? -globalImageScale : globalImageScale}, ${globalImageScale})
+`}
     
 
 >
