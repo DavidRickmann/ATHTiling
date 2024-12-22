@@ -306,6 +306,7 @@ const TilePairingInterface = () => {
 	const [globalImageOffsetY, setGlobalImageOffsetY] = React.useState(0);
 	const [hoveredTile, setHoveredTile] = React.useState(null);
     const [tooltipPosition, setTooltipPosition] = React.useState({ x: 0, y: 0 });
+    const [selectedTileId, setSelectedTileId] = React.useState(null);
 
     const tilePath = "M93.075588,186.263531L94.568682,74.654722l63.456514-.373275L190.5,19.036953L286.058044,73.5349l-.373274,110.488989l63.829788.746547L381,240.761477l-95.688503,54.497947L190.5,240.761476l-31.728257,54.124673-129.152669-.000001L0,240.761476l93.075588-54.497945Z";
     const centerX = 190.5;
@@ -324,25 +325,78 @@ const TilePairingInterface = () => {
         setHoveredTile(null);
     };
 
+    const handleTileClick = (e, tile) => {
+        e.stopPropagation();
+        setSelectedTileId(tile.id);
+    };
+
+
+    React.useEffect(() => {
+        const loadInitialTiles = async () => {
+            try {
+                // Use fetch with relative path
+                const response = await fetch('./tiles.json');
+                const jsonData = await response.json();
+                importTilesFromJson(jsonData);
+            } catch (error) {
+                console.error('Error loading tiles.json:', error);
+                // If fetch fails, try loading the content from a script tag
+                const jsonElement = document.getElementById('initial-tiles-data');
+                if (jsonElement) {
+                    try {
+                        const jsonData = JSON.parse(jsonElement.textContent);
+                        importTilesFromJson(jsonData);
+                    } catch (parseError) {
+                        console.error('Error parsing embedded JSON:', parseError);
+                    }
+                }
+            }
+        };
+        
+        loadInitialTiles();
+    }, []);
+
+
+    const handleTileWheel = (e, tile) => {
+        if (selectedTileId === tile.id) {
+            e.preventDefault();
+            const direction = e.deltaY > 0 ? 1 : -1;
+            setTiles(tiles.map(t => 
+                t.id === tile.id
+                    ? { ...t, rotation: t.rotation + (direction * 15) }
+                    : t
+            ));
+        }
+    };
+
+    // Clear selection when clicking canvas
+    const handleCanvasClick = () => {
+        setSelectedTileId(null);
+    };
 
     const handleWheel = (e) => {
-        e.preventDefault();
-        const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-        
-        const svgRect = svgRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - svgRect.left;
-        const mouseY = e.clientY - svgRect.top;
-        
-        const pointX = viewBox.x + (mouseX / svgRect.width) * viewBox.width;
-        const pointY = viewBox.y + (mouseY / svgRect.height) * viewBox.height;
-        
-        setViewBox(vb => ({
-            x: pointX - (pointX - vb.x) * zoomFactor,
-            y: pointY - (pointY - vb.y) * zoomFactor,
-            width: vb.width * zoomFactor,
-            height: vb.height * zoomFactor
-        }));
-    };
+    // If a tile is selected, don't handle zooming
+    if (selectedTileId !== null) {
+        return;
+    }
+    
+    e.preventDefault();
+    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - svgRect.left;
+    const mouseY = e.clientY - svgRect.top;
+    
+    const pointX = viewBox.x + (mouseX / svgRect.width) * viewBox.width;
+    const pointY = viewBox.y + (mouseY / svgRect.height) * viewBox.height;
+    
+    setViewBox(vb => ({
+        x: pointX - (pointX - vb.x) * zoomFactor,
+        y: pointY - (pointY - vb.y) * zoomFactor,
+        width: vb.width * zoomFactor,
+        height: vb.height * zoomFactor
+    }));
+};
 
     const handleMouseDown = (e) => {
         if (e.button === 1 || e.button === 2) {
@@ -469,7 +523,7 @@ const mirrorTile = (tileId) => {
         });
     };
 
-const getTileTransform = (tile) => {
+    const getTileTransform = (tile) => {
     const centerPosX = tile.x + centerX;
     const centerPosY = tile.y + centerY;
     
@@ -688,50 +742,10 @@ const flipTile = (tileId) => {
         <div className="w-full h-screen flex flex-col">
     <div className="toolbar">
     <div className="toolbar-group">
-        <Button onClick={addTilePair}>
-            <Icons.ImagePlus /> New Tile
-        </Button>
-        <BulkUploadButton onTilesCreated={handleBulkTilesCreated} />
-		<ImportFromJsonButton />
         <Button onClick={handleFlip}>
             <Icons.RotateCcw /> Flip Field
         </Button>
-        <Button 
-            onClick={async () => {
-                try {
-                    console.log('Attempting to fetch tiles with no-cors mode...');
-                    const response = await fetch('https://extractatile.bacon.boutique/download_json', {
-                        method: 'GET',
-                        mode: 'no-cors'
-                    });
-                    
-                    console.log('Response received:', response);
-                    console.log('Response type:', response.type);
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', [...response.headers]);
-                    
-                    try {
-                        const jsonData = await response.json();
-                        console.log('Successfully parsed JSON:', jsonData);
-                        importTilesFromJson(jsonData);
-                    } catch (parseError) {
-                        console.error('Error parsing response:', parseError);
-                        alert('Could not parse response. If running locally, try hosting on GitHub Pages. Error: ' + parseError.message);
-                    }
-                    
-                } catch (error) {
-                    console.error('Fetch error:', error);
-                    console.error('Error details:', {
-                        name: error.name,
-                        message: error.message,
-                        stack: error.stack
-                    });
-                    alert(`Error fetching tiles: ${error.message}\n\nTry accessing via GitHub Pages instead of locally.`);
-                }
-            }}
-        >
-            Get Tiles
-        </Button>
+       
     </div>
     
     <ImageAdjustControls
@@ -786,6 +800,7 @@ const flipTile = (tileId) => {
     </div>
 
     <svg 
+                onClick={handleCanvasClick}
                 ref={svgRef}
                 className="canvas"
                 onWheel={handleWheel}
@@ -799,19 +814,17 @@ const flipTile = (tileId) => {
                 <defs>
                     {tiles.map((tile) => (
                         <React.Fragment key={`patterns-${tile.id}`}>
-<pattern
+                            <pattern
     id={`front-${tile.id}`}
     patternUnits="userSpaceOnUse"
     width="381"
     height="295"
-    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
-
-	
-	>
 
 
-
-
+    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+    
+>
     {tile.front ? (
         <image
             href={tile.front}
@@ -829,8 +842,8 @@ const flipTile = (tileId) => {
     width="381"
     height="295"
     patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
     
-
 >
     {tile.back ? (
         <image
@@ -847,98 +860,73 @@ const flipTile = (tileId) => {
                     ))}
                 </defs>
 
-{tiles.map((tile) => {
-    // Calculate the centered and flipped position
-    const centerPosX = tile.x + centerX;
-    const centerPosY = tile.y + centerY;
-    const flippedX = isFlipped ? viewBox.width - centerPosX : centerPosX;
+                {tiles.map((tile) => {
+                const isSelected = selectedTileId === tile.id;
+                const centerPosX = tile.x + centerX;
+                const centerPosY = tile.y + centerY;
+                const flippedX = isFlipped ? viewBox.width - centerPosX : centerPosX;
 
-    return (
-        <g key={tile.id} 
-           onMouseDown={(e) => handleTileDragStart(e, tile)}
-           onMouseEnter={(e) => handleTileMouseEnter(e, tile)}
-           onMouseLeave={handleTileMouseLeave}
-           style={{ cursor: 'move' }}>
-            
-            {/* Shape with mirroring transform */}
-            <g transform={`
-                translate(${flippedX}, ${centerPosY})
-                rotate(${isFlipped ? -tile.rotation : tile.rotation})
-                scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -1 : 1}, 1)
-                translate(${-centerX}, ${-centerY})
-            `}>
-                <path
-                    d={tilePath}
-                    fill={`url(#${tile.isFlippedIndividually ? 'back' : 'front'}-${tile.id})`}
-                    stroke="black"
-                    strokeWidth="1"
-                />
-            </g>
+                const showBackSide = isFlipped ? !tile.isFlippedIndividually : tile.isFlippedIndividually;
+    
+                return (
+                    <g key={tile.id} 
+                        onClick={(e) => handleTileClick(e, tile)}
+                        onWheel={(e) => handleTileWheel(e, tile)}
+                        onMouseDown={(e) => handleTileDragStart(e, tile)}
+                        style={{ cursor: 'move' }}>
+                        
+                        {/* Tile shape with optional highlight for selection */}
+                        <g transform={`
+                            translate(${flippedX}, ${centerPosY})
+                            rotate(${isFlipped ? -tile.rotation : tile.rotation})
+                            scale(${(tile.isMirrored !== showBackSide) ? -1 : 1}, 1)
+                            translate(${-centerX}, ${-centerY})
+                        `}>
+                            <path
+                                d={tilePath}
+                                fill={`url(#${showBackSide ? 'back' : 'front'}-${tile.id})`}
+                                stroke={isSelected ? "#2196f3" : "black"}
+                                strokeWidth={isSelected ? "3" : "1"}
+                            />
+                        </g>
 
-            {/* Buttons with position but no mirroring */}
-            <g transform={`
-                translate(${flippedX}, ${centerPosY})
-                rotate(${isFlipped ? -tile.rotation : tile.rotation})
-                translate(${-centerX}, ${-centerY})
-            `}>
-                <foreignObject x="100" y="240" width="180" height="80">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                            <Button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    mirrorTile(tile.id);
-                                }}
-                                className="btn-sm"
-                            >
-                                <Icons.FlipHorizontal />
-                            </Button>
-                            <Button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteTile(tile.id);
-                                }}
-                                className="btn-sm"
-                            >
-                                <Icons.Delete />
-                            </Button>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                            <Button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    rotateTile(tile.id, -1);
-                                }}
-                                className="btn-sm"
-                            >
-                                <Icons.RotateCcw />
-                            </Button>
-                            <Button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    flipTile(tile.id);
-                                }}
-                                className="btn-sm"
-                            >
-                                <Icons.Flip />
-                            </Button>
-                            <Button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    rotateTile(tile.id, 1);
-                                }}
-                                className="btn-sm"
-                            >
-                                <Icons.RotateCw />
-                            </Button>
-                        </div>
-                    </div>
-                </foreignObject>
-            </g>
-        </g>
-    );
-})}
-            </svg>
+                        {/* Simplified control buttons */}
+                        <g transform={`
+                            translate(${flippedX}, ${centerPosY})
+                            rotate(${isFlipped ? -tile.rotation : tile.rotation})
+                            translate(${-centerX}, ${-centerY})
+                            `}>
+                            <foreignObject x="100" y="240" width="180" height="40">
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'center', 
+                                    gap: '0.5rem' 
+                                }}>
+                                    <Button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            flipTile(tile.id);
+                                        }}
+                                        className="btn-sm"
+                                    >
+                                        Flip
+                                    </Button>
+                                    <Button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            mirrorTile(tile.id);
+                                        }}
+                                        className="btn-sm"
+                                    >
+                                        Mirror
+                                    </Button>
+                                </div>
+                            </foreignObject>
+                        </g>
+                    </g>
+                );
+            })}
+        </svg>
 			
 			
 			 {hoveredTile && (
