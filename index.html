@@ -154,11 +154,6 @@ const Icons = {
             <path d="M12 8v8m-4-4h8"/>
         </svg>
     ),
-    RotateCw: () => (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.7 2.8L21 8"/>
-        </svg>
-    ),
     RotateCcw: () => (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 12a9 9 0 1 1 9 9c-2.52 0-4.93-1-6.7-2.8L3 16"/>
@@ -241,7 +236,6 @@ const ImageAdjustControls = ({
     );
 };
 
-
 // Add a Tooltip component for metadata display
 const MetadataTooltip = ({ metadata, position }) => {
   if (!metadata) return null;
@@ -290,9 +284,8 @@ const MetadataTooltip = ({ metadata, position }) => {
   );
 };
 
-
-
 const TilePairingInterface = () => {
+    // --- state declerations---
     const [tiles, setTiles] = React.useState([]);
     const [isFlipped, setIsFlipped] = React.useState(false);
     const [draggedTile, setDraggedTile] = React.useState(null);
@@ -312,25 +305,7 @@ const TilePairingInterface = () => {
     const centerX = 190.5;
     const centerY = 147.5;
 
-    const handleTileMouseEnter = (e, tile) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setTooltipPosition({
-            x: rect.left,
-            y: rect.top
-        });
-        setHoveredTile(tile);
-    };
-
-    const handleTileMouseLeave = () => {
-        setHoveredTile(null);
-    };
-
-    const handleTileClick = (e, tile) => {
-        e.stopPropagation();
-        setSelectedTileId(tile.id);
-    };
-
-
+    // Load initial tiles from JSON
     React.useEffect(() => {
         const loadInitialTiles = async () => {
             try {
@@ -355,49 +330,71 @@ const TilePairingInterface = () => {
         
         loadInitialTiles();
     }, []);
+    //wheel handling
+    React.useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
 
-
-    const handleTileWheel = (e, tile) => {
-        if (selectedTileId === tile.id) {
-            e.preventDefault();
-            const direction = e.deltaY > 0 ? 1 : -1;
-            setTiles(tiles.map(t => 
-                t.id === tile.id
-                    ? { ...t, rotation: t.rotation + (direction * 15) }
-                    : t
-            ));
+    const handleWheel = (e) => {
+        e.preventDefault();
+        
+        if (selectedTileId) {
+            // Handle tile rotation
+            const tile = tiles.find(t => t.id === selectedTileId);
+            if (tile) {
+                const direction = e.deltaY > 0 ? 1 : -1;
+                setTiles(prevTiles => prevTiles.map(t => 
+                    t.id === selectedTileId
+                        ? { ...t, rotation: t.rotation + (direction * 15) }
+                        : t
+                ));
+            }
+        } else {
+            // Handle zoom
+            const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+            
+            const svgRect = svg.getBoundingClientRect();
+            const mouseX = e.clientX - svgRect.left;
+            const mouseY = e.clientY - svgRect.top;
+            
+            const pointX = viewBox.x + (mouseX / svgRect.width) * viewBox.width;
+            const pointY = viewBox.y + (mouseY / svgRect.height) * viewBox.height;
+            
+            setViewBox(vb => ({
+                x: pointX - (pointX - vb.x) * zoomFactor,
+                y: pointY - (pointY - vb.y) * zoomFactor,
+                width: vb.width * zoomFactor,
+                height: vb.height * zoomFactor
+            }));
         }
     };
 
+    // Add the wheel event listener with { passive: false }
+    svg.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+        svg.removeEventListener('wheel', handleWheel);
+    };
+}, [selectedTileId, tiles, viewBox]);
+    const handleTileMouseEnter = (e, tile) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setTooltipPosition({
+            x: rect.left,
+            y: rect.top
+        });
+        setHoveredTile(tile);
+    };
+    const handleTileMouseLeave = () => {
+        setHoveredTile(null);
+    };
+    const handleTileClick = (e, tile) => {
+        e.stopPropagation();
+        setSelectedTileId(tile.id);
+    };
     // Clear selection when clicking canvas
     const handleCanvasClick = () => {
         setSelectedTileId(null);
     };
-
-    const handleWheel = (e) => {
-    // If a tile is selected, don't handle zooming
-    if (selectedTileId !== null) {
-        return;
-    }
-    
-    e.preventDefault();
-    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    
-    const svgRect = svgRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - svgRect.left;
-    const mouseY = e.clientY - svgRect.top;
-    
-    const pointX = viewBox.x + (mouseX / svgRect.width) * viewBox.width;
-    const pointY = viewBox.y + (mouseY / svgRect.height) * viewBox.height;
-    
-    setViewBox(vb => ({
-        x: pointX - (pointX - vb.x) * zoomFactor,
-        y: pointY - (pointY - vb.y) * zoomFactor,
-        width: vb.width * zoomFactor,
-        height: vb.height * zoomFactor
-    }));
-};
-
     const handleMouseDown = (e) => {
         if (e.button === 1 || e.button === 2) {
             e.preventDefault();
@@ -408,7 +405,6 @@ const TilePairingInterface = () => {
             });
         }
     };
-
     const handleMouseMove = (e) => {
         if (draggedTile) {
             const svgElement = svgRef.current;
@@ -447,20 +443,16 @@ const TilePairingInterface = () => {
             });
         }
     };
-
     const handleMouseUp = () => {
         setIsPanning(false);
         setDraggedTile(null);
     };
-
     const resetView = () => {
         setViewBox({ x: 0, y: 0, width: 1200, height: 800 });
     };
-
 	const deleteTile = (tileId) => {
     setTiles(tiles.filter(tile => tile.id !== tileId));
 };
-
     const addTilePair = () => {
         setTiles([...tiles, {
             id: Date.now(),
@@ -473,7 +465,6 @@ const TilePairingInterface = () => {
 			isFlippedIndividually: false,
         }]);
     };
-
     const rotateTile = (tileId, direction) => {
         setTiles(tiles.map(tile => 
             tile.id === tileId
@@ -481,15 +472,13 @@ const TilePairingInterface = () => {
                 : tile
         ));
     };
-
-const mirrorTile = (tileId) => {
+    const mirrorTile = (tileId) => {
     setTiles(tiles.map(tile => 
         tile.id === tileId
             ? { ...tile, isMirrored: !tile.isMirrored }
             : tile
     ));
 };
-
     const handleImageSelect = (e, tileId, side) => {
         const file = e.target.files[0];
         if (file) {
@@ -504,7 +493,6 @@ const mirrorTile = (tileId) => {
             reader.readAsDataURL(file);
         }
     };
-
     const handleTileDragStart = (e, tile) => {
         e.stopPropagation();
         const svgElement = svgRef.current;
@@ -522,7 +510,6 @@ const mirrorTile = (tileId) => {
             y: svgP.y - tile.y
         });
     };
-
     const getTileTransform = (tile) => {
     const centerPosX = tile.x + centerX;
     const centerPosY = tile.y + centerY;
@@ -537,7 +524,6 @@ const mirrorTile = (tileId) => {
         translate(${-centerX}, ${-centerY})
     `;
 };
-
     // Flip the entire view when toggling
     const handleFlip = () => {
         setIsFlipped(!isFlipped);
@@ -547,10 +533,7 @@ const mirrorTile = (tileId) => {
             x: vb.width - vb.x - vb.width // This mirrors the viewBox position
         }));
     };
-	
-	
-	   
-const saveToFile = () => {
+    const saveToFile = () => {
     const saveData = {
         tiles: tiles.map(tile => ({
             ...tile,
@@ -573,7 +556,6 @@ const saveToFile = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 };
-
     const loadFromFile = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -590,18 +572,7 @@ const saveToFile = () => {
             };
             reader.readAsText(file);
         }
-    };
-	
-	
-		
-
-    React.useEffect(() => {
-        const preventDefault = (e) => e.preventDefault();
-        svgRef.current?.addEventListener('contextmenu', preventDefault);
-        return () => svgRef.current?.removeEventListener('contextmenu', preventDefault);
-    }, []);
-
-	const BulkUploadButton = ({ onTilesCreated }) => {
+    };	
     const handleFolderUpload = async (e) => {
         const files = Array.from(e.target.files);
         const imageMap = new Map();
@@ -647,36 +618,17 @@ const saveToFile = () => {
             onTilesCreated(newTile);
         };
     };
-
-    return (
-        <label className="btn">
-            <input
-                type="file"
-                multiple
-                webkitdirectory=""
-                directory=""
-                style={{ display: 'none' }}
-                onChange={handleFolderUpload}
-            />
-            Bulk Upload Folder
-        </label>
-    );
-};
-
-const handleBulkTilesCreated = (newTile) => {
-    setTiles(prevTiles => [...prevTiles, newTile]);
-};
-
-const flipTile = (tileId) => {
+    const handleBulkTilesCreated = (newTile) => {
+        setTiles(prevTiles => [...prevTiles, newTile]);
+    };
+    const flipTile = (tileId) => {
     setTiles(tiles.map(tile => 
         tile.id === tileId
             ? { ...tile, isFlippedIndividually: !tile.isFlippedIndividually }
             : tile
     ));
 };
-
-
- const importTilesFromJson = (jsonData) => {
+    const importTilesFromJson = (jsonData) => {
         const tileEntries = Object.entries(jsonData);
         
         const newTiles = tileEntries.map(([id, data], index) => {
@@ -702,41 +654,40 @@ const flipTile = (tileId) => {
 		console.log("New tiles being added:", newTiles);
         setTiles(prevTiles => [...prevTiles, ...newTiles]);
     };
-	
     const ImportFromJsonButton = () => {
-        const handleFileSelect = (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const jsonData = JSON.parse(e.target.result);
-                        importTilesFromJson(jsonData);
-                    } catch (error) {
-                        console.error('Error parsing JSON:', error);
-                        alert('Error parsing JSON file');
-                    }
-                };
-                reader.onerror = (error) => {
-                    console.error('Error reading file:', error);
-                    alert('Error reading file');
-                };
-                reader.readAsText(file);
-            }
-        };
-
-        return (
-            <label className="btn">
-                <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                />
-                Import from JSON
-            </label>
-        );
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+                    importTilesFromJson(jsonData);
+                } catch (error) {
+                    console.error('Error parsing JSON:', error);
+                    alert('Error parsing JSON file');
+                }
+            };
+            reader.onerror = (error) => {
+                console.error('Error reading file:', error);
+                alert('Error reading file');
+            };
+            reader.readAsText(file);
+        }
     };
+
+    return (
+        <label className="btn">
+            <input
+                type="file"
+                accept=".json"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+            />
+            Import from JSON
+        </label>
+    );
+};
 
     return (
         <div className="w-full h-screen flex flex-col">
@@ -803,7 +754,6 @@ const flipTile = (tileId) => {
                 onClick={handleCanvasClick}
                 ref={svgRef}
                 className="canvas"
-                onWheel={handleWheel}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -820,11 +770,14 @@ const flipTile = (tileId) => {
     width="381"
     height="295"
 
-
-    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
-    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+    //working version (well individual flip)
+    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
     
->
+    //new no mirror version
+    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${globalImageScale})`}
+    
+    
+    >
     {tile.front ? (
         <image
             href={tile.front}
@@ -841,9 +794,12 @@ const flipTile = (tileId) => {
     patternUnits="userSpaceOnUse"
     width="381"
     height="295"
-    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
-    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${tile.isMirrored ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+    //working version (individual flip)
+    //patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(${(tile.isMirrored !== tile.isFlippedIndividually) ? -globalImageScale : globalImageScale}, ${globalImageScale})`}
+    //new no mirror version
+    patternTransform={`translate(${globalImageOffsetX} ${globalImageOffsetY}) scale(-${globalImageScale}, ${globalImageScale})`}
     
+
 >
     {tile.back ? (
         <image
@@ -871,7 +827,6 @@ const flipTile = (tileId) => {
                 return (
                     <g key={tile.id} 
                         onClick={(e) => handleTileClick(e, tile)}
-                        onWheel={(e) => handleTileWheel(e, tile)}
                         onMouseDown={(e) => handleTileDragStart(e, tile)}
                         style={{ cursor: 'move' }}>
                         
